@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>考古学人生模拟器 · 吃土与随机人生</title>
+    <style>
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        body { background: #2b2b1f; font-family: 'Courier New', 'Fira Code', 'Microsoft YaHei', monospace; margin: 0; padding: 20px; color: #f0e6c5; }
+        .game-container { max-width: 1400px; margin: 0 auto; background: #4a3b28; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,200,0.1); overflow: hidden; border: 1px solid #c9a87b; display: flex; flex-direction: column; min-height: 90vh; }
+        .resources { background: #2c241a; padding: 16px 24px; display: flex; flex-wrap: wrap; gap: 16px 32px; border-bottom: 3px solid #b87c4f; font-weight: bold; text-shadow: 1px 1px 0 #1f1a12; justify-content: center;}
+        .resource { background: #3e2e22; padding: 6px 14px; border-radius: 40px; display: inline-flex; align-items: center; gap: 8px; font-size: 1.1rem; }
+        .resource .value { font-family: monospace; font-size: 1.35rem; font-weight: bold; min-width: 45px; text-align: center; color: #f5e7c8; }
+        .ap-bar { background: #5e4b32; border-radius: 20px; padding: 4px 14px; }
+        .main-layout { display: flex; flex-wrap: wrap; flex: 1; }
+        .game-area { flex: 3; min-width: 320px; padding: 25px; background: #5c4833; border-right: 2px solid #b28252; display: flex; flex-direction: column; }
+        .status-sidebar { flex: 1; min-width: 280px; background: #3f3222; padding: 24px 20px; border-left: 4px solid #e0a878; font-size: 0.95rem; box-shadow: -3px 0 8px rgba(0,0,0,0.3); }
+        .phase-card { background: #2c241a; padding: 10px 20px; border-radius: 30px; margin-bottom: 20px; display: inline-block; font-weight: bold; font-size: 1.1rem; border-left: 6px solid #e0a14b; }
+        .actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 25px 0 20px; }
+        .action-btn { background: #2b2a1e; border: 1px solid #dba45a; color: #fff0cf; font-family: inherit; font-weight: bold; padding: 10px 18px; border-radius: 60px; cursor: pointer; transition: 0.1s linear; font-size: 0.95rem; box-shadow: 0 2px 3px black; }
+        .action-btn:hover:not(:disabled) { background: #7e5d3c; transform: scale(0.97); }
+        .action-btn:disabled { background: #3a352a; color: #786f5d; border-color: #4a4538; cursor: not-allowed; box-shadow: none; }
+        .end-turn { background: #8b5a2b; border-color: #f5bc70; box-shadow: 0 0 5px #ffb347; }
+        .end-turn:disabled { background: #4d3a28; border-color: #735b40; box-shadow: none; }
+        .event-panel { background: #2f271d; border-radius: 20px; padding: 24px; margin-top: 25px; border-left: 8px solid #d9943c; min-height: 280px; font-size: 1.1rem; display: flex; flex-direction: column; }
+        .event-title { color: #ffcf8a; font-size: 1.3rem; font-weight: bold; border-bottom: 1px dashed #b87a42; padding-bottom: 10px; margin-bottom: 15px; }
+        .event-desc { margin: 12px 0; line-height: 1.6; flex: 1; }
+        .event-options { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+        .event-opt { background: #4d3823; padding: 12px 18px; border-radius: 40px; cursor: pointer; font-size: 0.95rem; border: 1px solid #bc8f60; transition: 0.1s; }
+        .event-opt:hover { background: #6e4e30; }
+        .log-area { background: #1e1912; margin-top: auto; padding: 15px; border-radius: 16px; font-size: 0.85rem; height: 180px; overflow-y: auto; font-family: monospace; line-height: 1.5; border: 1px solid #3a3023; }
+        .stat-item { margin-bottom: 18px; }
+        .stat-label { display: flex; justify-content: space-between; margin-bottom: 6px; }
+        .progress-bar { background: #261f16; height: 12px; border-radius: 10px; overflow: hidden; }
+        .progress-fill { background: #e6b064; width: 0%; height: 100%; border-radius: 10px; transition: width 0.3s; }
+        .status-log { margin-top: 30px; border-top: 1px solid #7c5f41; padding-top: 15px; font-style: italic; font-size: 0.85rem; color: #ebd5b3; line-height: 1.5; }
+        .selector-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; overflow-y: auto; }
+        .selector-card { background: #4a3827; padding: 40px; border-radius: 40px; text-align: center; border: 2px solid #e0a14b; max-width: 500px; margin: auto; }
+        .uni-btn { background: #6b4c2c; margin: 15px auto; padding: 12px 20px; border-radius: 40px; cursor: pointer; display: block; border: 1px solid #c9a87b; font-size: 1.05rem; transition: 0.2s; width: 90%; }
+        .uni-btn:hover { background: #8b6c4c; transform: scale(1.02); }
+        .uni-btn.cross-btn { background: #5a2e2e; border-color: #ff6b6b; color: #ffd1d1; }
+        .uni-btn.cross-btn:hover { background: #7a3e3e; }
+        .color-pos { color: #85e085; font-weight: bold; }
+        .color-neg { color: #ff6b6b; font-weight: bold; }
+        .color-neu { color: #d3d3d3; }
+
+        /* 📱 核心：手机端响应式适配代码 */
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .game-container { border-radius: 16px; min-height: 95vh; }
+            .main-layout { flex-direction: column; } /* 左右变上下 */
+            .game-area { border-right: none; border-bottom: 4px solid #b28252; padding: 15px; }
+            .status-sidebar { border-left: none; padding: 20px 15px; }
+            .resources { gap: 10px; padding: 10px; }
+            .resource { font-size: 0.9rem; padding: 4px 10px; width: 45%; justify-content: center; } /* 资源并排显示 */
+            .ap-bar { width: 95%; margin-top: 5px; }
+            .action-btn { width: 100%; text-align: center; padding: 14px; font-size: 1rem; margin-bottom: 5px; } /* 按钮变大占满屏幕 */
+            .event-opt { width: 100%; text-align: center; padding: 14px; }
+            .selector-card { padding: 20px; width: 95%; }
+            .uni-btn { font-size: 0.9rem; padding: 15px 10px; }
+        }
+    </style>
+</head>
+<body>
+<div id="startSelector" class="selector-overlay">
+    <div class="selector-card">
+        <h2>🏺 高考/跨考志愿</h2>
+        <p>选择你的出身背景，决定初始资源与学术难度</p>
+        <div class="uni-btn" data-uni="985">🏛️ 顶尖高校本科 (资源倍率1.2，科班出身)</div>
+        <div class="uni-btn" data-uni="211">📚 普通本科科班 (倍率1.0，稳扎稳打)</div>
+        <div class="uni-btn" data-uni="double">🌾 双非院校本科 (倍率0.8，逆袭线)</div>
+        <div class="uni-btn cross-btn" data-uni="cross">🚀 外专业跨考生 (一键跳过本科直达硕士，面临就业歧视)</div>
+    </div>
+</div>
+
+<div class="game-container" id="gameContainer" style="display:none;">
+    <div class="resources">
+        <div class="resource">📚 学识 <span class="value" id="acaVal">50</span></div>
+        <div class="resource">⛏️ 实践 <span class="value" id="pracVal">50</span></div>
+        <div class="resource">💰 资金 <span class="value" id="moneyVal">300</span></div>
+        <div class="resource">💪 体力 <span class="value" id="phyVal">80</span></div>
+        <div class="resource">🧠 理智 <span class="value" id="sanVal">80</span></div>
+        <div class="resource ap-bar">⚡ AP <span class="value" id="apVal">100</span> / <span id="apMaxVal">100</span></div>
+    </div>
+    <div class="main-layout">
+        <div class="game-area">
+            <div>
+                <div class="phase-card" id="phaseText">🎓 本科 · 大一秋季学期</div>
+                <span style="margin-left:10px; font-weight:bold; font-size:1rem; display:inline-block; margin-bottom:10px;">📅 第 <span id="semesterCount">1</span> 学期 | 🎯 <span id="yearStage">大一</span></span>
+            </div>
+            <div class="actions" id="actionButtons"></div>
+            <button id="endTurnBtn" class="action-btn end-turn">⏳ 结束本学期 (进入结算)</button>
+            <div class="event-panel" id="eventPanel">
+                <div class="event-title" id="eventTitle">📜 考古现场</div>
+                <div class="event-desc" id="eventDesc">点击上方行动，开始吃土人生。</div>
+                <div id="eventOptions" class="event-options"></div>
+            </div>
+            <div class="log-area" id="logArea"></div>
+        </div>
+        <div class="status-sidebar">
+            <div style="text-align:center; margin-bottom:15px; font-weight:bold; font-size:1.1rem; color:#ffcf8a;">🏺 探方状态 T-2026</div>
+            <div class="stat-item"><div class="stat-label">☀️ 晒黑程度</div><div class="progress-bar"><div class="progress-fill" id="tanFill"></div></div></div>
+            <div class="stat-item"><div class="stat-label">💇 发量剩余</div><div class="progress-bar"><div class="progress-fill" id="hairFill"></div></div></div>
+            <div class="stat-item"><div class="stat-label">👁️ 黑眼圈浓度</div><div class="progress-bar"><div class="progress-fill" id="eyeFill"></div></div></div>
+            <div class="stat-item"><div class="stat-label">🧠 精神状态</div><div class="progress-bar"><div class="progress-fill" id="mentalFill"></div></div><div id="mentalText" style="font-size:0.85rem; margin-top:4px;">稳定</div></div>
+            <div class="stat-item"><div class="stat-label">🛠️ 手铲状态</div><div class="progress-bar"><div class="progress-fill" id="shovelFill"></div></div><div id="shovelText" style="margin-top:4px;">锋利</div></div>
+            <div class="stat-item"><div class="stat-label">📝 论文进度</div><div class="progress-bar"><div class="progress-fill" id="paperFill"></div></div><div id="paperStatus" style="margin-top:4px;">未投稿 (已发: 0篇)</div></div>
+            <div class="status-log" id="flavorText">📖 近况：<br>萌新初入象牙塔</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---------- 游戏核心 ----------
+    let game = {
+        aca: 50, prac: 50, money: 300, phy: 80, san: 80, ap: 100, maxAp: 100,
+        semester: 1, phase: "undergrad", 
+        resourceMult: 1.0,   
+        fieldworkDays: 0, allnightCount: 0, shovelDura: 100,
+        paperProgress: 0, paperSubmitted: false, paperRevision: 0,
+        publishedPapers: 0,
+        mentorFavor: 20, gameOver: false, gameAddictCount: 0, 
+        isCrossMajor: false, phdStarted: false,
+        masterDirection: "",
+        threshold80triggered: false,
+        threshold90triggered: false
+    };
+
+    let startSemesterStats = { aca: 50, prac: 50, money: 300, phy: 80, san: 80 };
+    let pendingEvent = false;
+
+    const doms = {
+        aca: document.getElementById('acaVal'), prac: document.getElementById('pracVal'),
+        money: document.getElementById('moneyVal'), phy: document.getElementById('phyVal'),
+        san: document.getElementById('sanVal'), ap: document.getElementById('apVal'),
+        maxAp: document.getElementById('apMaxVal'), semester: document.getElementById('semesterCount'), 
+        yearStage: document.getElementById('yearStage'), phaseText: document.getElementById('phaseText'), 
+        eventTitle: document.getElementById('eventTitle'), eventDesc: document.getElementById('eventDesc'),
+        eventOptions: document.getElementById('eventOptions'), logArea: document.getElementById('logArea'),
+        tanFill: document.getElementById('tanFill'), hairFill: document.getElementById('hairFill'),
+        eyeFill: document.getElementById('eyeFill'), mentalFill: document.getElementById('mentalFill'),
+        mentalText: document.getElementById('mentalText'), shovelFill: document.getElementById('shovelFill'),
+        shovelText: document.getElementById('shovelText'), paperFill: document.getElementById('paperFill'),
+        paperStatus: document.getElementById('paperStatus'), flavorText: document.getElementById('flavorText')
+    };
+
+    function addLog(msg) {
+        let p = document.createElement('div');
+        p.innerHTML = `> ${msg}`;
+        doms.logArea.appendChild(p);
+        doms.logArea.scrollTop = doms.logArea.scrollHeight;
+        while(doms.logArea.children.length > 30) doms.logArea.removeChild(doms.logArea.firstChild);
+    }
+
+    function clamp(val, min, max) { return Math.min(max, Math.max(min, val)); }
+
+    function getDiffColorClass(diff) {
+        if(diff > 0) return 'color-pos';
+        if(diff < 0) return 'color-neg';
+        return 'color-neu';
+    }
+
+    function updateActionButtonsState() {
+        if (game.gameOver) {
+            document.querySelectorAll('.action-btn').forEach(btn => btn.disabled = true);
+            return;
+        }
+        let endTurnBtn = document.getElementById('endTurnBtn');
+        if (pendingEvent) {
+            document.querySelectorAll('#actionButtons .action-btn').forEach(btn => btn.disabled = true);
+            endTurnBtn.disabled = true;
+            return;
+        }
+        document.querySelectorAll('#actionButtons .action-btn').forEach(btn => {
+            let cost = parseInt(btn.getAttribute('data-cost'));
+            if (!isNaN(cost)) btn.disabled = (game.ap < cost);
+        });
+        endTurnBtn.disabled = false;
+    }
+
+    function addPaperProgress(amount) {
+        if (game.paperSubmitted) return; 
+        let newProgress = game.paperProgress + amount;
+        game.paperProgress = Math.min(100, newProgress);
+        if (amount > 0) addLog(`📝 论文进度 +${amount}，当前 ${game.paperProgress}/100`);
+        if (game.paperProgress >= 100 && !game.paperSubmitted) {
+            trySubmitPaper();
+        }
+        updateUI();
+    }
+
+    function checkAcaThreshold() {
+        if (game.phase === "undergrad" && game.semester < 4) return;
+        let acaFloor = Math.floor(game.aca);
+        if (acaFloor >= 80 && !game.threshold80triggered) {
+            game.threshold80triggered = true;
+            triggerInspirationEvent(80);
+        } else if (acaFloor >= 90 && !game.threshold90triggered) {
+            game.threshold90triggered = true;
+            triggerInspirationEvent(90);
+        }
+    }
+
+    function triggerInspirationEvent(threshold) {
+        if (game.gameOver || pendingEvent) return;
+        pendingEvent = true;
+        doms.eventTitle.innerText = "💡 灵光乍现 · 绝妙创新点";
+        doms.eventDesc.innerHTML = `你的学识达到了 ${threshold}，在整理资料时突然有了一个绝妙的学术创新点！写论文如有神助。`;
+        doms.eventOptions.innerHTML = "";
+        let btn = document.createElement('div');
+        btn.className = "event-opt";
+        btn.innerText = "✍️ 立刻抓住灵感，狂写论文！";
+        btn.onclick = () => {
+            pendingEvent = false;
+            let gain = 50;
+            addPaperProgress(gain);
+            addLog(`✨ 灵感爆发！论文进度直接 +${gain}。`);
+            
+            if (!game.gameOver && !pendingEvent) {
+                doms.eventOptions.innerHTML = "";
+                doms.eventTitle.innerText = "📜 考古现场";
+                doms.eventDesc.innerText = "点击上方行动，继续你的考古人生。";
+            }
+            updateUI();
+            checkGameOver();
+        };
+        doms.eventOptions.appendChild(btn);
+        updateActionButtonsState();
+    }
+
+    function updateUI() {
+        doms.aca.innerText = Math.floor(game.aca);
+        doms.prac.innerText = Math.floor(game.prac);
+        doms.money.innerText = Math.floor(game.money);
+        doms.phy.innerText = Math.floor(game.phy);
+        doms.san.innerText = Math.floor(game.san);
+        doms.ap.innerText = Math.floor(game.ap);
+        doms.maxAp.innerText = game.maxAp;
+        
+        let tanPercent = Math.min(100, Math.floor((game.fieldworkDays / 20) * 100));
+        doms.tanFill.style.width = tanPercent + '%';
+        let hairPercent = Math.max(35, 100 - game.allnightCount * 2.2);
+        doms.hairFill.style.width = hairPercent + '%';
+        let eyePercent = Math.min(95, (game.allnightCount * 3) + (80 - game.phy) * 0.4);
+        doms.eyeFill.style.width = eyePercent + '%';
+        let mentalPercent = game.san;
+        doms.mentalFill.style.width = mentalPercent + '%';
+        
+        if(game.san>=70) doms.mentalText.innerHTML = "<span style='color:#85e085'>心若止水</span>";
+        else if(game.san>=40) doms.mentalText.innerHTML = "<span style='color:#ffcc00'>轻度焦虑</span>";
+        else if(game.san>=20) doms.mentalText.innerHTML = "<span style='color:#ff6b6b'>濒临发疯</span>";
+        else doms.mentalText.innerHTML = "<span style='color:red; font-weight:bold;'>薛定谔的理智</span>";
+        
+        let shovelPercent = game.shovelDura;
+        doms.shovelFill.style.width = shovelPercent + '%';
+        if(shovelPercent>=70) doms.shovelText.innerText = "锋利";
+        else if(shovelPercent>=30) doms.shovelText.innerText = "磨损";
+        else doms.shovelText.innerHTML = "<span style='color:#ff6b6b'>断裂(效率降低)</span>";
+        
+        let paperPercent = (game.paperProgress / 100) * 100;
+        doms.paperFill.style.width = Math.min(100, paperPercent) + '%';
+        
+        if(game.paperSubmitted) doms.paperStatus.innerHTML = `<span style='color:#ffcf8a'>审稿中... (已发: ${game.publishedPapers}篇)</span>`;
+        else doms.paperStatus.innerText = `进度 ${Math.floor(game.paperProgress)}/100 (已发: ${game.publishedPapers}篇)`;
+        
+        let flavor = "";
+        if(game.fieldworkDays>4) flavor = "🌚 黑得发亮，民工大姨叫你煤球。";
+        else if(game.fieldworkDays>0) flavor = "🟤 肤色开始向黄土靠拢。";
+        else flavor = "⚪ 萌新白净，手铲未沾土。";
+        if(game.san<25) flavor += " 眼神空洞，笑容诡异。";
+        else if(game.allnightCount>5) flavor += " 咖啡杯堆成山。";
+        
+        if(game.isCrossMajor) flavor += " <br>🏷️ [跨考生] 需加倍努力补充基础。";
+        if(game.masterDirection === "traditional") flavor += " <br>🏺 [传统派] 满桌陶片与发黄文献。";
+        if(game.masterDirection === "tech") flavor += " <br>🔬 [科技派] 白大褂与冰冷的数据。";
+
+        doms.flavorText.innerHTML = `📖 近况记录：<br>${flavor}`;
+        updateActionButtonsState();
+    }
+
+    function triggerDirectionEvent() {
+        pendingEvent = true;
+        doms.eventTitle.innerText = "🎓 硕士方向分流";
+        doms.eventDesc.innerHTML = "正式进入硕士阶段！导师要求你确立未来的研究大方向，这将决定你的学术日常：<br><br><strong>🏺 传统考古：</strong>下工地收材料、室内排类型学、泡图书馆翻阅旧发掘简报。<br><strong>🔬 科技考古：</strong>工地采样提取、实验室理化模拟、电脑前跑数据测年。";
+        doms.eventOptions.innerHTML = "";
+
+        let btnTrad = document.createElement('div');
+        btnTrad.className = "event-opt";
+        btnTrad.innerText = "选择 🏺 传统考古方向";
+        btnTrad.onclick = () => {
+            game.masterDirection = "traditional";
+            pendingEvent = false;
+            addLog("你选择了传统考古方向，准备在浩瀚的文献和破碎的陶片中寻找历史脉络。");
+            
+            if (!game.gameOver && !pendingEvent) {
+                doms.eventOptions.innerHTML = "";
+                doms.eventTitle.innerText = "📜 考古现场";
+                doms.eventDesc.innerText = "方向已选定。合理分配你的行动力(AP)。";
+            }
+            buildActions(); renderActions(); updateUI();
+        };
+        
+        let btnTech = document.createElement('div');
+        btnTech.className = "event-opt";
+        btnTech.innerText = "选择 🔬 科技考古方向";
+        btnTech.onclick = () => {
+            game.masterDirection = "tech";
+            pendingEvent = false;
+            addLog("你选择了科技考古方向，白大褂和精密仪器将成为你的新战袍。");
+            
+            if (!game.gameOver && !pendingEvent) {
+                doms.eventOptions.innerHTML = "";
+                doms.eventTitle.innerText = "📜 考古现场";
+                doms.eventDesc.innerText = "方向已选定。合理分配你的行动力(AP)。";
+            }
+            buildActions(); renderActions(); updateUI();
+        };
+
+        doms.eventOptions.appendChild(btnTrad);
+        doms.eventOptions.appendChild(btnTech);
+        updateActionButtonsState();
+    }
+
+    function triggerMasterGraduationEvent() {
+        pendingEvent = true;
+        doms.eventTitle.innerText = "🎓 硕士毕业季：人生的十字路口";
+        doms.eventDesc.innerHTML = "转眼间，你的硕士生涯结束了。现在面临着直接就业，还是继续深造申请博士的选择。<br><br>";
+        doms.eventOptions.innerHTML = "";
+
+        let btnJob = document.createElement('div');
+        btnJob.className = "event-opt";
+        btnJob.innerText = "💼 找工作就业";
+        btnJob.onclick = () => {
+            pendingEvent = false;
+            if (game.isCrossMajor) {
+                endGame("【被歧视的跨考生结局】你去参加招聘会，HR一看简历冷漠地说：‘对不起，我们院所只招本硕专业一致的科班生。’你遭遇了严重的第一学历歧视，只能加入考公大军，偶尔发朋友圈怀念曾经吃土的日子。");
+            } else {
+                endGame("【省级考古所研究员结局】凭借扎实的本硕科班背景，你击败了众多竞争者，顺利进入了省级考古所，捧上了稳定的铁饭碗。");
+            }
+        };
+        doms.eventOptions.appendChild(btnJob);
+
+        let btnPhD = document.createElement('div');
+        btnPhD.className = "event-opt";
+        btnPhD.innerText = "📚 申请博士 (需 学识>75 且 发表至少1篇论文)";
+        btnPhD.onclick = () => {
+            if (game.aca >= 75 && game.publishedPapers >= 1) {
+                pendingEvent = false;
+                game.phdStarted = true;
+                addLog(`成功申博！你的学识(${Math.floor(game.aca)})和已发论文(${game.publishedPapers}篇)打动了博导。进入博士死磕阶段！`);
+                
+                if (!game.gameOver && !pendingEvent) {
+                    doms.eventOptions.innerHTML = "";
+                    doms.eventTitle.innerText = "📜 考古现场";
+                    doms.eventDesc.innerText = "博士阶段开启，压力骤增，请小心你的发际线。";
+                }
+                executeNextSemester(); 
+            } else {
+                addLog(`❌ 条件不足！当前学识:${Math.floor(game.aca)}/75，已发论文:${game.publishedPapers}篇/1篇。导师婉拒了你的读博申请，被迫直接就业！`);
+                btnJob.click(); 
+            }
+        };
+        doms.eventOptions.appendChild(btnPhD);
+        updateActionButtonsState();
+    }
+
+    function checkGameOver() {
+        if(game.gameOver) return true;
+        if(game.san <= 0) { endGame("💀 理智归零，你突然在探方里大喊大叫，连夜被家属接回。退学转行卖红薯... 【强制劝退结局】"); return true; }
+        if(game.phy <= 0) { endGame("🏥 体力崩溃，你倒在了工地上，重病休学，人生轨迹改变... 【体力崩溃结局】"); return true; }
+        
+        if(game.phase === "undergrad" && game.semester > 8) {
+            if(game.aca>=70 && game.prac>=65) {
+                game.phase = "grad";
+                game.semester = 9;
+                game.mentorFavor = 25;
+                updatePhaseDisplay();
+                addLog("✨ 本科毕业，成功保研/考研至考古文博专业！进入硕士阶段。");
+                triggerDirectionEvent();
+                return true;
+            } else {
+                let ending = game.aca>=50 ? "📜 基层文保员 / 考古公司打工人 【平凡打工人结局】" : "💼 转行做新媒体运营，偶尔发朋友圈怀念手铲 【跨界结局】";
+                endGame(ending);
+                return true;
+            }
+        }
+        
+        if(game.phase === "grad" && game.semester === 15 && !game.phdStarted) {
+            triggerMasterGraduationEvent();
+            return true; 
+        }
+
+        if(game.phase === "grad" && game.phdStarted && game.semester > 20) {
+            if(game.aca >= 85 && game.publishedPapers >= 3) {
+                endGame("🏆 博士顺利毕业！拿着多篇顶级期刊，你拿到了顶尖高校教职或国家级研究所编制。【学术大佬结局】");
+            } else if (game.aca >= 75 && game.publishedPapers >= 1) {
+                endGame("📄 勉强达到毕业要求。你拿着博士学位去了一所普通地方院校当了“青椒”，继续在学术圈卷生卷死。【青椒结局】");
+            } else {
+                endGame("💣 延期三年还是达不到毕业要求，你最终退学，人生迷茫。【博士肄业结局】");
+            }
+            return true;
+        }
+        return false;
+    }
+
+    function endGame(msg) {
+        if(game.gameOver) return;
+        game.gameOver = true;
+        addLog(msg);
+        doms.eventTitle.innerText = "🛑 模拟结束";
+        doms.eventDesc.innerHTML = `<span style="color:#ffcf8a;">${msg}</span><br><br>游戏结束，请刷新网页重新开始人生。`;
+        doms.eventOptions.innerHTML = "";
+        updateActionButtonsState();
+    }
+
+    function consumeAP(cost) {
+        if(game.ap < cost) return false; 
+        game.ap -= cost;
+        return true;
+    }
+
+    function trySubmitPaper() {
+        if(game.paperProgress >= 100 && !game.paperSubmitted) {
+            game.paperSubmitted = true;
+            
+            let roll = Math.floor(Math.random() * 100) + 1; 
+            let acaBonus = Math.floor(game.aca * 0.4); 
+            let totalScore = roll + acaBonus;
+            
+            if (game.phase === "undergrad") {
+                totalScore -= 20; 
+            }
+
+            addLog(`📬 论文送交盲审中... (外审综合得分判定: ${totalScore})`);
+            
+            if(totalScore >= 95) {
+                game.publishedPapers++;
+                addLog(`🎉 【直接录用】外审专家非常认可！(当前总发文: ${game.publishedPapers}篇) 学识大涨，获得奖金。`);
+                game.aca = clamp(game.aca+15,0,100);
+                game.san = clamp(game.san+20,0,100);
+                game.money += 500;
+                game.paperProgress = 0;
+                game.paperSubmitted = false;
+                game.paperRevision = 0;
+            } else if(totalScore >= 55) {
+                addLog("📝 【打回重改】审稿人提出了尖锐的修改意见，要求大修重投。理智下降，进度回退。");
+                game.san = clamp(game.san-15,0,100);
+                game.paperProgress = 70; 
+                game.paperSubmitted = false;
+                game.paperRevision++;
+            } else {
+                addLog("💥 【惨遭拒稿】审稿人认为毫无学术价值，直接拒稿！理智大跌，只能补救后换投。");
+                game.san = clamp(game.san-25,0,100);
+                game.paperProgress = 50; 
+                game.paperSubmitted = false;
+                game.paperRevision++;
+            }
+            updateUI();
+        }
+    }
+
+    function fieldDiscovery() {
+        if(Math.random()<0.08) {
+            let r = Math.random();
+            if(r<0.6) {
+                addLog("✨ 你挖出一件完整陶鬲！工地轰动，学识+8，理智+10。");
+                game.aca = clamp(game.aca+8,0,100);
+                game.money += 80;
+                checkAcaThreshold();
+            } else if(r<0.9) {
+                addLog("🏺 发现青铜小件！媒体采访，资金+200，理智+10。");
+                game.money += 200;
+                game.san = clamp(game.san+10,0,100);
+            } else {
+                addLog("👑 天呐！发现重要窖藏！全国考古大会邀请，声望暴涨！");
+                game.aca = clamp(game.aca+25,0,100);
+                game.money += 800;
+                game.san = 100;
+                checkAcaThreshold();
+            }
+        }
+    }
+
+    function triggerIntroEvent() {
+        pendingEvent = true;
+        doms.eventTitle.innerText = "序章：入局";
+        if(game.isCrossMajor) {
+            doms.eventDesc.innerHTML = "拿到跨考录取通知书后的家庭聚会上，大舅得知你放弃了原本热门的高薪专业去读考古硕士，惊呼：<br><br><strong>“哎哟，脑子进水了吧？跨考去挖泥巴，以后毕业了去哪里找对口工作？”</strong><br><br>全场亲戚的目光都集中在你身上...";
+        } else {
+            doms.eventDesc.innerHTML = "拿到本科录取通知书后的家庭聚会上，大舅得知你报了考古专业，惊呼：<br><br><strong>“哎哟，以后就是去盗墓的吧？这专业毕业了能赚几个钱？”</strong><br><br>全场亲戚的目光都集中在你身上...";
+        }
+        
+        doms.eventOptions.innerHTML = "";
+        let opts = [
+            { text: "🗣️ 耐心科普“抢救性发掘”", effect:()=>{ game.san=clamp(game.san-10,0,100); game.aca=clamp(game.aca+5,0,100); addLog("大舅没听懂，但巩固了基础。理智-10，学识+5。"); checkAcaThreshold(); } },
+            { text: "😏 顺着他说“对，明天去寻龙点穴找你的墓放在哪合适”", effect:()=>{ game.san=clamp(game.san+10,0,100); addLog("大舅吓得不敢说话了。精神胜利法生效，理智+10。"); } }
+        ];
+
+        opts.forEach(opt => {
+            let btn = document.createElement('div');
+            btn.className = "event-opt";
+            btn.innerText = opt.text;
+            btn.onclick = () => {
+                pendingEvent = false; 
+                addLog(`面临抉择: ${opt.text}`);
+                opt.effect();
+                
+                if (!game.gameOver && !pendingEvent) {
+                    if (game.phase === "grad" && !game.masterDirection) {
+                        triggerDirectionEvent();
+                    } else {
+                        doms.eventOptions.innerHTML = "";
+                        doms.eventTitle.innerText = "📜 考古现场";
+                        doms.eventDesc.innerText = "合理分配你的行动力(AP)，注意身心健康。";
+                        updateUI(); 
+                    }
+                }
+            };
+            doms.eventOptions.appendChild(btn);
+        });
+        updateActionButtonsState(); 
+    }
+
+    function getRandomEvent() {
+        let events = [];
+        if (game.phase === "undergrad" && game.semester <= 4) {
+            events.push({
+                desc: "🎭 考古文博协会纳新：古琴、竹简、汉服摊位，学长学姐热情邀请你加入。",
+                opts: [
+                    { text: "🎉 加入社团，参加读书会与志愿讲解", effect:()=>{ game.san=clamp(game.san+15,0,100); game.aca=clamp(game.aca+4,0,100); game.money-=20; addLog("你结交了许多志同道合的朋友，理智+15，学识+4。"); checkAcaThreshold(); } },
+                    { text: "🚶 默默路过，回图书馆继续刷书", effect:()=>{ game.aca=clamp(game.aca+3,0,100); addLog("你拒绝了娱乐，学识+3，但好像错过了什么。"); checkAcaThreshold(); } }
+                ]
+            });
+            events.push({
+                desc: "📋 大创项目组队：你打算申报‘考古与公众传播’课题，需要寻找队友。",
+                opts: [
+                    { text: "🤝 寻找学术大腿组队", effect:()=>{ if(Math.random()<0.6) { game.aca=clamp(game.aca+14,0,100); game.prac=clamp(game.prac+10,0,100); game.money+=200; addLog("大腿带你飞！项目获国家级立项，学识+14，实践+10，奖金+200。"); } else { game.san=clamp(game.san-12,0,100); game.aca=clamp(game.aca+4,0,100); addLog("遇见了混子队友，项目推进缓慢，理智-12，学识勉强+4。"); } checkAcaThreshold(); } },
+                    { text: "👤 自己单干，独立完成", effect:()=>{ game.aca=clamp(game.aca+8,0,100); game.prac=clamp(game.prac+6,0,100); game.san=clamp(game.san-6,0,100); addLog("熬夜肝完报告，学识+8，实践+6，理智-6。"); checkAcaThreshold(); } }
+                ]
+            });
+            events.push({
+                desc: "💡 互联网+大赛宣讲会：鼓励考古与元宇宙、AI数字人结合，商业化包装。",
+                opts: [
+                    { text: "🔥 熬夜爆肝PPT参赛", effect:()=>{ game.san=clamp(game.san-18,0,100); game.aca=clamp(game.aca+12,0,100); if(Math.random()<0.5) { game.money+=600; game.aca=clamp(game.aca+8,0,100); addLog("项目获得省金！奖金+600，学识大涨+8。"); } else { game.money+=100; addLog("只拿到参与奖，奖金+100。"); } checkAcaThreshold(); } },
+                    { text: "😴 佛系参与，随便糊弄", effect:()=>{ game.aca=clamp(game.aca+3,0,100); addLog("交了一份平庸的策划书，学识+3。"); checkAcaThreshold(); } }
+                ]
+            });
+        }
+        
+        if (game.phase === "grad" || game.semester >= 5) {
+            events.push(
+                { desc: "🐈 探方里来了一只流浪小黄狗，眼巴巴地看着你的工地盒饭。", opts: [ { text: "🍖 喂半根火腿肠交朋友", effect:()=>{ game.san+=15; game.money-=10; addLog("你和小黄成为了朋友，被治愈了（理智大涨+15，资金-10）。"); } }, { text: "✋ 狠心赶走", effect:()=>{ game.san-=5; addLog("小黄夹着尾巴跑了，你低头看着盒饭心里有点不是滋味（理智-5）。"); } } ] },
+                { desc: "🐍 清表土时，你一铁锹下去，土里猛地窜出一条蛇和几条大黄鳝！", opts: [ { text: "😱 吓得丢下铲子就跑", effect:()=>{ game.san-=15; game.prac-=5; addLog("你当众上演了百米冲刺，理智-15，被民工大姨笑了半天（实践-5）。"); } }, { text: "💪 强装镇定继续干干干", effect:()=>{ game.san-=5; game.prac+=5; addLog("虽然心里发毛（理智-5），但你的淡定赢得了当地老乡的尊敬（实践+5）。"); } } ] },
+                { desc: "📱 几个大爷大妈跑来工地边拍照发抖音，配文“官方盗墓现场”。", opts: [ { text: "😡 没及时制止，随他们去", effect:()=>{ game.san-=20; addLog("视频上了同城热搜，底下全是网民的谩骂，你看了差点气吐血（理智-20）。"); } }, { text: "🛑 耐心过去劝离并科普", effect:()=>{ game.ap-=10; game.prac+=5; addLog("费了半天口舌（AP-10），极大地锻炼了群众工作能力（实践+5）。"); } } ] },
+                { desc: "🍻 晚上领队拉着大家去镇上聚餐，一高兴非要给你灌白酒。", opts: [ { text: "🤢 硬着头皮喝干", effect:()=>{ game.san-=15; game.phy-=20; game.mentorFavor+=10; addLog("第二天头昏脑胀迟到，险些摔进探方里（体力-20，理智-15），但领队觉得你实在（好感+10）。"); } }, { text: "🙅 拿吃头孢当借口拒酒", effect:()=>{ game.san+=5; game.mentorFavor-=5; addLog("成功保住了身体（理智+5），但酒桌气氛冷了一下（好感-5）。"); } } ] }
+            );
+
+            if (game.prac >= 60) {
+                events.push({
+                    desc: "💀 隐藏事件触发：你在清理灰坑时，突然刮出了一具保存完好的人类骨架。",
+                    opts: [
+                        { text: "🤩 兴奋！立刻鉴定骨骼病理！", effect:()=>{ game.prac+=10; game.san+=10; addLog("你展现出了惊人的体质人类学天赋，实践+10，理智+10。"); } },
+                        { text: "😱 害怕，晚上要做噩梦了", effect:()=>{ game.san-=15; addLog("一闭眼就是骨架，理智-15。"); } }
+                    ]
+                });
+            }
+            
+            if (game.publishedPapers >= 1) {
+                events.push({
+                    desc: "🎤 隐藏事件触发：你带着已发表的论文参加学术年会，茶歇时遇到了一位圈内大佬。",
+                    opts: [
+                        { text: "🗣️ 主动出击，推销自己的研究", effect:()=>{ if(game.aca >= 70) { game.mentorFavor+=20; game.san+=15; addLog("大佬非常赏识你，导师好感+20，理智大涨。"); } else { game.san-=10; addLog("大佬问了你几个专业问题，你支支吾吾没答上来，尴尬离场，理智-10。"); } } },
+                        { text: "🍰 默默在角落吃免费小蛋糕", effect:()=>{ game.phy+=10; addLog("这酒店的小蛋糕真好吃，体力+10。"); } }
+                    ]
+                });
+            }
+
+            if (game.phdStarted) {
+                events.push({
+                    desc: "📨 盲审暴击：你的阶段性成果送去外审，碰上了传说中的「Reviewer 2」。",
+                    opts: [
+                        { text: "😭 崩溃，边哭边改", effect:()=>{ game.san-=25; game.aca+=10; addLog("被批得体无完肤，含泪通宵大改，理智-25，但学术严谨度提升，学识+10。"); } },
+                        { text: "😡 怒写长文反驳审稿人", effect:()=>{ if(Math.random()<0.3) { game.san+=10; game.aca+=15; addLog("编辑居然认可了你的反驳！大获全胜，理智+10，学识+15。"); } else { game.san-=30; game.mentorFavor-=20; addLog("反驳失败被拒稿，导师把你也骂了一顿，理智-30，好感-20。"); } } }
+                    ]
+                });
+            }
+        }
+        
+        if(events.length === 0) return { desc: "无事发生", opts: [] };
+        return events[Math.floor(Math.random()*events.length)];
+    }
+
+    function tryTriggerEvent() {
+        if(pendingEvent || game.gameOver) return;
+        if(Math.random()<0.35) { 
+            let ev = getRandomEvent();
+            if(ev.opts.length === 0) return;
+            pendingEvent = true;
+            doms.eventTitle.innerText = "⚠️ 突发事件";
+            doms.eventDesc.innerHTML = `<span style="color:#ffcc00">${ev.desc}</span>`;
+            doms.eventOptions.innerHTML = "";
+            ev.opts.forEach(opt => {
+                let btn = document.createElement('div');
+                btn.className = "event-opt";
+                btn.innerText = opt.text;
+                btn.onclick = () => {
+                    pendingEvent = false; 
+                    addLog(`面临抉择: ${opt.text}`); 
+                    opt.effect();
+                    
+                    if (!game.gameOver && !pendingEvent) {
+                        doms.eventOptions.innerHTML = "";
+                        doms.eventTitle.innerText = "📜 考古现场";
+                        doms.eventDesc.innerText = "点击上方行动，继续你的考古人生。";
+                    }
+                    updateUI(); 
+                    checkGameOver();
+                };
+                doms.eventOptions.appendChild(btn);
+            });
+            updateActionButtonsState(); 
+        }
+    }
+
+    function injectMandatoryFieldwork() {
+        let container = document.getElementById('actionButtons');
+        container.innerHTML = "";
+        let btn = document.createElement('button');
+        btn.innerText = "🚩 强制：田野发掘实习 (消耗 80 AP)";
+        btn.className = "action-btn";
+        btn.style.backgroundColor = "#8b3a3a";
+        btn.setAttribute('data-cost', 80);
+        btn.onclick = () => {
+            if(game.gameOver || pendingEvent) return;
+            if(consumeAP(80)) {
+                game.prac = clamp(game.prac + 25, 0, 100);
+                game.phy = clamp(game.phy - 40, 0, 100);
+                game.san = clamp(game.san - 15, 0, 100);
+                game.fieldworkDays += 15;
+                game.shovelDura = clamp(game.shovelDura - 30, 0, 100);
+                addLog("【强制实习执行完毕】在荒郊野岭吃了整整半年的土，天天刮面写记录。实践能力暴涨，但也累掉了半条命。");
+                fieldDiscovery();
+                updateUI();
+                checkGameOver();
+                updateActionButtonsState();
+            }
+        };
+        container.appendChild(btn);
+        updateActionButtonsState();
+    }
+
+    function buildActions() {
+        let actionsList = {};
+        
+        if (game.phase === "undergrad") {
+            actionsList["📖 专业听讲"] = { ap:15, effect:()=>{ 
+                let gain=1+Math.floor(Math.random()*2); game.aca+=gain; game.phy-=2; 
+                let msg = `上课记笔记，学识缓慢+${gain}`;
+                if(game.semester >= 4 && Math.random()<0.3) { addPaperProgress(1); msg += "，积累了些许论文素材"; }
+                addLog(msg); checkAcaThreshold(); 
+            } };
+            actionsList["📚 图书馆肝书"] = { ap:10, effect:()=>{ 
+                let gain=1+Math.floor(Math.random()*2); game.aca+=gain; game.phy-=3; 
+                let msg = `查阅基础文献，学识+${gain}`;
+                if(game.semester >= 4 && Math.random()<0.5) { addPaperProgress(1); msg += "，获得些许论文思路"; }
+                addLog(msg); checkAcaThreshold(); 
+            } };
+            actionsList["⛏️ 田野下地"] = { ap:30, effect:()=>{ 
+                let gain=(game.shovelDura>50?4:2); game.prac+=gain; game.phy-=15; game.fieldworkDays+=2; game.shovelDura-=5; 
+                let msg = `吃土刮面，实践+${gain}`;
+                if(game.semester >= 4 && Math.random()<0.2) { addPaperProgress(1); msg += "，获得一手发掘资料"; }
+                addLog(msg); fieldDiscovery(); 
+            } };
+        } else if (game.phase === "grad") {
+            if (game.masterDirection === "traditional") {
+                actionsList["🗂️ 搜集发掘材料"] = { ap:20, effect:()=>{ game.prac+=5; game.aca+=2; game.phy-=10; addLog("在库房翻找落满灰的陶片，实践+5，学识+2"); addPaperProgress(4); checkAcaThreshold(); } };
+                actionsList["📚 翻阅旧版简报"] = { ap:15, effect:()=>{ game.aca+=6; game.san-=5; addLog("看繁体竖排本看瞎了眼，学识大涨+6，理智-5"); addPaperProgress(5); checkAcaThreshold(); } };
+                actionsList["🏺 室内类型学排队"] = { ap:20, effect:()=>{ game.prac+=6; game.aca+=4; game.san-=5; addLog("将几百个碎陶片按型式排列，眼花缭乱，实践+6，学识+4，理智-5"); addPaperProgress(4); checkAcaThreshold(); } };
+            } else if (game.masterDirection === "tech") {
+                actionsList["🧪 工地采样与提取"] = { ap:20, effect:()=>{ game.prac+=6; game.phy-=10; addLog("去探方刮取土样和碳化植物，实践+6，体力大降-10"); addPaperProgress(3); } };
+                actionsList["🔬 实验室理化模拟"] = { ap:15, effect:()=>{ game.aca+=5; game.san-=5; addLog("在实验室盯了一天同位素仪器，学识+5，理智-5"); addPaperProgress(6); checkAcaThreshold(); } };
+                actionsList["💻 跑测年数据建模"] = { ap:20, effect:()=>{ game.aca+=8; game.san-=8; game.phy-=5; addLog("数据跑偏了只能重跑，理智狂掉-8，但摸透了软件，学识+8"); addPaperProgress(5); checkAcaThreshold(); } };
+            }
+            actionsList["✍️ 爆肝写核心论文"] = { ap:25, effect:()=>{ let prog = 15+Math.floor(Math.random()*10); addPaperProgress(prog); game.allnightCount++; game.san -= 10+Math.floor(Math.random()*5); game.phy -= 12; addLog(`熬夜敲键盘写论文，理智和头发都在离你而去。`); } };
+            actionsList["🍻 师门吐槽局"] = { ap:15, effect:()=>{ if(game.money>=50){ game.money-=50; game.san+=20; addLog("和同门撸串疯狂吐槽导师，理智大涨+20，资金-50");} else addLog("钱包空空，大家只好去操场压马路。"); } };
+        }
+        
+        actionsList["🛒 網購科研/生活物資"] = { ap:10, effect:()=>{
+            if(game.money >= 100) {
+                game.money -= 100;
+                game.san += 5;
+                game.phy += 5;
+                game.shovelDura = 100; 
+                addLog("花费 100 资金，买了防晒霜、生发液和一把全新的进口手铲！状态全面恢复。");
+            } else {
+                addLog("看了一眼购物车，资金不足 100 块，只能含泪关闭网页。");
+            }
+        }};
+        
+        actionsList["🏋️ 跑步解压"] = { ap:10, effect:()=>{ game.phy+=15; addLog("去操场跑圈，释放学术压力，体力回升。"); } };
+        actionsList["😴 宿舍死尸躺"] = { ap:15, effect:()=>{ game.phy+=25; game.san+=10; addLog("在床上躺尸了一整天，体力+25，理智+10"); } };
+        actionsList["💼 兼职/干横向"] = { ap:20, effect:()=>{ let earn=60+Math.floor(Math.random()*40); game.money+=earn; game.phy-=8; addLog(`干了点私活赚劳务费，资金+${earn}`); } };
+        
+        for(let key in actionsList) {
+            let origEffect = actionsList[key].effect;
+            actionsList[key].effect = () => {
+                origEffect();
+                game.aca = clamp(game.aca, 0, 100);
+                game.prac = clamp(game.prac, 0, 100);
+                game.phy = clamp(game.phy, 0, 100);
+                game.san = clamp(game.san, 0, 100);
+                game.shovelDura = clamp(game.shovelDura, 0, 100);
+                game.money = Math.max(0, game.money);
+                updateUI();
+            };
+        }
+        window.actionsList = actionsList;
+    }
+
+    function renderActions() {
+        let container = document.getElementById('actionButtons');
+        container.innerHTML = "";
+        if(!window.actionsList) buildActions();
+        for(let [name, act] of Object.entries(window.actionsList)) {
+            let btn = document.createElement('button');
+            btn.innerText = `${name} (${act.ap}AP)`;
+            btn.className = "action-btn";
+            btn.setAttribute('data-cost', act.ap); 
+            btn.onclick = () => {
+                if(game.gameOver || pendingEvent) return;
+                if(consumeAP(act.ap)) {
+                    act.effect();
+                    updateUI();
+                    if(checkGameOver()) return;
+                    tryTriggerEvent();
+                    updateUI(); 
+                }
+            };
+            container.appendChild(btn);
+        }
+        updateActionButtonsState();
+    }
+
+    function updatePhaseDisplay() {
+        let year, season;
+        if(game.phase === "undergrad") {
+            year = Math.ceil(game.semester/2);
+            season = (game.semester%2===1)?"秋":"春";
+            let grade = ["大一","大二","大三","大四"][year-1] || "大四";
+            doms.yearStage.innerText = `${grade} ${season}学期`;
+            doms.phaseText.innerHTML = `🎓 本科 · ${grade}${season}学期`;
+        } else if (!game.phdStarted) {
+            let gradSem = game.semester - 8; 
+            year = Math.ceil(gradSem/2);
+            season = (gradSem%2===1)?"秋":"春";
+            doms.yearStage.innerText = `硕士 ${year}年级 ${season}`;
+            doms.phaseText.innerHTML = `📜 硕士炼狱 · 第${year}年`;
+        } else {
+            let phdSem = game.semester - 14; 
+            year = Math.ceil(phdSem/2);
+            season = (phdSem%2===1)?"秋":"春";
+            doms.yearStage.innerText = `博士 ${year}年级 ${season}`;
+            doms.phaseText.innerHTML = `☠️ 博士死磕 · 第${year}年`;
+        }
+    }
+
+    function processSemesterSummary() {
+        pendingEvent = true;
+        let d_aca = Math.floor(game.aca) - Math.floor(startSemesterStats.aca);
+        let d_prac = Math.floor(game.prac) - Math.floor(startSemesterStats.prac);
+        let d_money = Math.floor(game.money) - Math.floor(startSemesterStats.money);
+        let d_san = Math.floor(game.san) - Math.floor(startSemesterStats.san);
+        
+        doms.eventTitle.innerText = `📊 第 ${game.semester} 学期 · 结算报告`;
+        doms.eventDesc.innerHTML = `
+            时间飞逝，本学期结束了。下面是你的成长与损耗统计：<br><br>
+            <div style="background:rgba(0,0,0,0.2); padding:15px; border-radius:10px; font-family:monospace;">
+                📚 学识变化：<span class="${getDiffColorClass(d_aca)}">${d_aca > 0 ? '+' : ''}${d_aca}</span> <br>
+                ⛏️ 实践变化：<span class="${getDiffColorClass(d_prac)}">${d_prac > 0 ? '+' : ''}${d_prac}</span> <br>
+                💰 资金盈亏：<span class="${getDiffColorClass(d_money)}">${d_money > 0 ? '+' : ''}${d_money}</span> <br>
+                🧠 理智波动：<span class="${getDiffColorClass(d_san)}">${d_san > 0 ? '+' : ''}${d_san}</span> <br>
+            </div>
+            <br>
+            即将进入新的学期，你的行动力（AP）将重置。
+        `;
+        doms.eventOptions.innerHTML = "";
+        let nextBtn = document.createElement('div');
+        nextBtn.className = "event-opt";
+        nextBtn.style.backgroundColor = "#8b5a2b";
+        nextBtn.style.color = "#fff";
+        nextBtn.innerText = "🚀 确认并进入下一学期";
+        nextBtn.onclick = () => {
+            pendingEvent = false;
+            executeNextSemester();
+        };
+        doms.eventOptions.appendChild(nextBtn);
+        updateActionButtonsState();
+    }
+
+    function executeNextSemester() {
+        game.ap = game.maxAp; 
+        game.semester++;
+        updatePhaseDisplay();
+        game.phy = clamp(game.phy+10,0,100);
+        game.san = clamp(game.san+5,0,100);
+        startSemesterStats = { aca: game.aca, prac: game.prac, money: game.money, phy: game.phy, san: game.san };
+        addLog(`===== 进入第${game.semester}学期 =====`);
+        
+        if (!game.gameOver && !pendingEvent) {
+            doms.eventOptions.innerHTML = "";
+            doms.eventTitle.innerText = "📜 考古现场";
+            doms.eventDesc.innerText = "新学期开始了，点击上方行动，继续你的考古人生。";
+        }
+        updateUI();
+        if(checkGameOver()) return;
+        if (game.phase === "undergrad" && game.semester === 5) {
+            injectMandatoryFieldwork();
+            addLog("📢 【强制下地警报】本学期是学院强制规定的田野实习季！你必须远赴工地，无法进行任何常规校园活动！");
+        } else {
+            buildActions();
+            renderActions();
+            if(game.phase === "undergrad" && game.semester === 6) addLog("📢 你结束了残酷的田野实习，带着一身泥土回到了校园。");
+        }
+        if(!game.gameOver && Math.random()<0.2) tryTriggerEvent();
+        updateUI();
+    }
+
+    document.getElementById('endTurnBtn').onclick = () => { if(!game.gameOver && !pendingEvent) processSemesterSummary(); };
+
+    function startGame(uniType) {
+        let mult = 1.0;
+        if(uniType === 'cross') {
+            game.phase = "grad";
+            game.semester = 9;
+            game.isCrossMajor = true;
+            game.aca = 45; game.prac = 10; game.money = 500; game.phy = 70; game.san = 70;
+            addLog("你本科学的是其他专业，出于对考古的浪漫幻想，跨专业考上了考古系硕士！");
+        } else {
+            if(uniType==='985') { mult=1.2; game.aca=58; game.prac=52; game.money=320; addLog("你进入顶尖985，竞争激烈但资源丰富。"); }
+            else if(uniType==='211') { mult=1.0; game.aca=52; game.prac=50; game.money=300; addLog("普通211，稳扎稳打。"); }
+            else { mult=0.8; game.aca=45; game.prac=48; game.money=260; addLog("双非院校，逆袭之路充满挑战。"); }
+            game.resourceMult = mult;
+        }
+        game.phy = 80; game.san = 80; game.ap = game.maxAp = 100; 
+        game.fieldworkDays = 0; game.allnightCount = 0; game.shovelDura = 100;
+        game.paperProgress = 0; game.paperSubmitted = false; game.publishedPapers = 0; game.mentorFavor = 20; 
+        game.gameOver = false; game.gameAddictCount = 0; game.phdStarted = false; game.masterDirection = "";
+        game.threshold80triggered = false; game.threshold90triggered = false;
+        startSemesterStats = { aca: game.aca, prac: game.prac, money: game.money, phy: game.phy, san: game.san };
+        document.getElementById('startSelector').style.display = 'none';
+        document.getElementById('gameContainer').style.display = 'flex';
+        buildActions(); renderActions(); updatePhaseDisplay();
+        triggerIntroEvent();
+    }
+
+    document.querySelectorAll('.uni-btn').forEach(btn => {
+        btn.addEventListener('click', () => { let type = btn.getAttribute('data-uni'); startGame(type); });
+    });
+</script>
+</body>
+</html>
